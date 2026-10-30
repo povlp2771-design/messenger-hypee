@@ -4,16 +4,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>okak messenger</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icon.svg">
+<meta name="theme-color" content="#17212b">
 <style>
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
   body { margin: 0; font-family: -apple-system, Roboto, sans-serif; background: #0e1621; color: #e8eef5; height: 100dvh; }
   .screen { display: flex; flex-direction: column; height: 100dvh; max-width: 700px; margin: 0 auto; }
-  header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: #17212b; }
-  header .grow { flex: 1; font-weight: 600; }
+  header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #17212b; }
+  header .grow { flex: 1; min-width: 0; }
   button { border: none; border-radius: 10px; background: #2b8fd9; color: #fff; padding: 10px 14px; font-size: 15px; }
   button.ghost { background: transparent; color: #7fb3ff; padding: 8px; }
-  input { width: 100%; padding: 12px 14px; border: none; border-radius: 12px; background: #0e1621; color: #fff; font-size: 16px; }
+  button.alt { background: #223245; }
+  input, textarea { width: 100%; padding: 12px 14px; border: none; border-radius: 12px; background: #0e1621; color: #fff; font-size: 16px; font-family: inherit; }
+  textarea { resize: none; height: 70px; }
+  .ava { border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; color: #fff; }
+  .meBtn, .peer { display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 600; min-width: 0; }
+  .peer small { display: block; color: #8a99a8; font-weight: 400; font-size: 12px; }
   #auth { justify-content: center; padding: 24px; gap: 12px; }
   #auth h1 { text-align: center; margin: 0 0 8px; }
   #auth .row { display: flex; gap: 10px; }
@@ -23,7 +31,6 @@
   .search { padding: 10px 12px; background: #17212b; }
   #chats { flex: 1; overflow-y: auto; }
   .item { display: flex; gap: 12px; padding: 12px 14px; align-items: center; border-bottom: 1px solid #17212b; }
-  .ava { width: 46px; height: 46px; border-radius: 50%; background: #2b8fd9; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; flex-shrink: 0; }
   .item .info { flex: 1; min-width: 0; }
   .item .nm { font-weight: 600; }
   .item .pv { color: #8a99a8; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -33,9 +40,31 @@
   .msg { max-width: 80%; padding: 8px 12px; border-radius: 14px; background: #182533; word-wrap: break-word; white-space: pre-wrap; }
   .msg.me { align-self: flex-end; background: #2b5278; }
   .msg.star { background: #4b3a10; font-weight: 600; }
+  .msg.gift { background: #3a2250; text-align: center; }
   .msg .t { font-size: 11px; color: #8a99a8; text-align: right; margin-top: 2px; }
   form { display: flex; gap: 8px; padding: 10px; background: #17212b; }
   form input { flex: 1; }
+  .pbody { flex: 1; overflow-y: auto; padding: 16px; }
+  .pcard { text-align: center; padding: 10px 0 16px; }
+  .pcard .ava { margin: 0 auto 10px; }
+  #pName { font-size: 22px; font-weight: 700; }
+  #pUser { color: #7fb3ff; margin-top: 2px; }
+  #pBio { color: #c3cdd8; margin-top: 8px; white-space: pre-wrap; }
+  #pStars { margin-top: 8px; font-weight: 600; }
+  .box { background: #17212b; border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+  .box h3 { margin: 0 0 10px; font-size: 15px; color: #8a99a8; font-weight: 600; }
+  .acts { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .edit { display: flex; flex-direction: column; gap: 10px; }
+  .sw { display: flex; gap: 10px; flex-wrap: wrap; }
+  .sw span { width: 34px; height: 34px; border-radius: 50%; border: 3px solid transparent; }
+  .sw span.sel { border-color: #fff; }
+  .ggrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .gcell { background: #0e1621; border-radius: 12px; padding: 10px 6px; text-align: center; font-size: 13px; }
+  .gcell .e { font-size: 36px; }
+  .gcell .s { color: #8a99a8; font-size: 11px; margin-top: 2px; word-break: break-all; }
+  #gmodal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: flex-end; justify-content: center; z-index: 10; }
+  #gsheet { background: #17212b; width: 100%; max-width: 700px; border-radius: 18px 18px 0 0; padding: 16px; max-height: 80dvh; overflow-y: auto; }
+  #gsheet .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -53,19 +82,21 @@
 
 <div id="list" class="screen" hidden>
   <header>
-    <div class="grow" id="myname"></div>
+    <div class="meBtn" id="meBtn"></div>
+    <div class="grow"></div>
     <div id="bal">⭐ 0</div>
     <button class="ghost" id="btnLogout">Выйти</button>
   </header>
-  <div class="search"><input id="q" placeholder="Поиск по юзернейму" autocapitalize="none"></div>
+  <div class="search"><input id="q" placeholder="Поиск по имени или юзернейму" autocapitalize="none"></div>
   <div id="chats"></div>
 </div>
 
 <div id="chat" class="screen" hidden>
   <header>
     <button class="ghost" id="btnBack">←</button>
-    <div class="grow" id="peername"></div>
-    <button id="btnStars">⭐</button>
+    <div class="peer grow" id="peerBtn"></div>
+    <button class="alt" id="btnGift">🎁</button>
+    <button class="alt" id="btnStars">⭐</button>
   </header>
   <div id="msgs"></div>
   <form id="form">
@@ -74,27 +105,91 @@
   </form>
 </div>
 
+<div id="prof" class="screen" hidden>
+  <header>
+    <button class="ghost" id="pBack">←</button>
+    <div class="grow" style="font-weight:600">Профиль</div>
+  </header>
+  <div class="pbody">
+    <div class="pcard">
+      <div id="pAva"></div>
+      <div id="pName"></div>
+      <div id="pUser"></div>
+      <div id="pBio"></div>
+      <div id="pStars" hidden></div>
+    </div>
+    <div class="acts" id="pActs" hidden>
+      <button id="pWrite">Написать</button>
+      <button class="alt" id="pGift">🎁 Подарок</button>
+      <button class="alt" id="pStarsBtn">⭐ Звёзды</button>
+    </div>
+    <div class="box edit" id="pEdit" hidden>
+      <h3>Редактировать профиль</h3>
+      <input id="eName" placeholder="Имя" maxlength="30">
+      <textarea id="eBio" placeholder="О себе" maxlength="150"></textarea>
+      <div class="sw" id="sw"></div>
+      <button id="eSave">Сохранить</button>
+    </div>
+    <div class="box">
+      <h3>Подарки</h3>
+      <div class="ggrid" id="pGifts"></div>
+    </div>
+  </div>
+</div>
+
+<div id="gmodal" hidden>
+  <div id="gsheet">
+    <div class="top"><span id="gtitle">Подарки</span><button class="ghost" id="gclose">✕</button></div>
+    <div class="ggrid" id="glist"></div>
+  </div>
+</div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script>
   const ADMIN = 'durovv';
+  const COLORS = ['#2b8fd9', '#e5484d', '#30a46c', '#f5a623', '#8e4ec6', '#e93d82', '#12a594', '#6e7781'];
   const $ = (s) => document.querySelector(s);
   const socket = io();
   let me = null, peer = null, token = null;
+  let gifts = [], giftTo = null, profUser = null, profPrev = '#list', editColor = COLORS[0];
   try { token = localStorage.getItem('token'); } catch (e) {}
 
   function show(id) {
-    ['#auth', '#list', '#chat'].forEach((s) => { $(s).hidden = (s !== id); });
+    ['#auth', '#list', '#chat', '#prof'].forEach((s) => { $(s).hidden = (s !== id); });
   }
   function fmt(t) {
     return new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
-  function setMe(m) {
-    me = m;
-    $('#myname').textContent = '@' + m.username;
-    $('#bal').textContent = '⭐ ' + m.stars;
+  function ava(p, size) {
+    const d = document.createElement('div');
+    d.className = 'ava';
+    d.style.background = p.color || COLORS[0];
+    d.style.width = d.style.height = size + 'px';
+    d.style.fontSize = Math.round(size * 0.42) + 'px';
+    d.textContent = (Array.from(p.name || p.username || '?')[0] || '?').toUpperCase();
+    return d;
   }
+  function renderMe() {
+    const b = $('#meBtn');
+    b.innerHTML = '';
+    b.appendChild(ava(me, 36));
+    const s = document.createElement('span');
+    s.textContent = me.name;
+    b.appendChild(s);
+    $('#bal').textContent = '⭐ ' + me.stars;
+  }
+  function setMe(m) { me = m; renderMe(); }
   function saveToken(t) { token = t; try { localStorage.setItem('token', t); } catch (e) {} }
   function clearToken() { token = null; try { localStorage.removeItem('token'); } catch (e) {} }
+  function loadGifts() {
+    socket.emit('gifts', null, (res) => { if (res && res.ok) gifts = res.gifts; });
+  }
+  function preview(m) {
+    const who = m.from === me.username ? 'Вы: ' : '';
+    if (m.type === 'stars') return who + '⭐ ' + m.amount;
+    if (m.type === 'gift') return who + '🎁 ' + m.emoji + ' ' + m.gname;
+    return who + m.text;
+  }
 
   // ---- вход ----
   function enter(res) {
@@ -104,6 +199,7 @@
     $('#err').textContent = '';
     $('#p').value = '';
     show('#list');
+    loadGifts();
     loadChats();
   }
   $('#btnLogin').onclick = () => socket.emit('login', { username: $('#u').value, password: $('#p').value }, enter);
@@ -121,6 +217,7 @@
         const first = !me;
         setMe(res.me);
         if (first) show('#list');
+        loadGifts();
         loadChats();
         if (peer) openChat(peer);
       } else {
@@ -137,36 +234,30 @@
     if (!items.length) {
       const e = document.createElement('div');
       e.className = 'empty';
-      e.textContent = 'Чатов пока нет. Найдите человека по юзернейму выше.';
+      e.textContent = 'Чатов пока нет. Найдите человека по имени или юзернейму выше.';
       box.appendChild(e);
       return;
     }
     items.forEach((it) => {
       const row = document.createElement('div');
       row.className = 'item';
-      const ava = document.createElement('div');
-      ava.className = 'ava';
-      ava.textContent = it.user[0].toUpperCase();
       const info = document.createElement('div');
       info.className = 'info';
       const nm = document.createElement('div');
       nm.className = 'nm';
-      nm.textContent = '@' + it.user;
+      nm.textContent = it.name + '  @' + it.username;
       const pv = document.createElement('div');
       pv.className = 'pv';
-      if (it.last) {
-        const who = it.last.from === me.username ? 'Вы: ' : '';
-        pv.textContent = who + (it.last.type === 'stars' ? '⭐ ' + it.last.amount : it.last.text);
-      }
+      if (it.last) pv.textContent = preview(it.last);
       info.append(nm, pv);
-      row.append(ava, info);
+      row.append(ava(it, 46), info);
       if (it.last) {
         const tm = document.createElement('div');
         tm.className = 'tm';
         tm.textContent = fmt(it.last.time);
         row.appendChild(tm);
       }
-      row.onclick = () => openChat(it.user);
+      row.onclick = () => openChat(it.username);
       box.appendChild(row);
     });
   }
@@ -178,18 +269,26 @@
     const q = $('#q').value.trim();
     if (!q) { loadChats(); return; }
     socket.emit('search', q, (res) => {
-      if (res && res.ok) renderItems(res.users.map((u) => ({ user: u, last: null })));
+      if (res && res.ok) renderItems(res.users.map((u) => ({ ...u, last: null })));
     });
   });
+  $('#meBtn').onclick = () => showProfile(me.username, '#list');
 
   // ---- чат ----
   function add(m) {
     const div = document.createElement('div');
     const mine = m.from === me.username;
-    div.className = 'msg' + (mine ? ' me' : '') + (m.type === 'stars' ? ' star' : '');
+    div.className = 'msg' + (mine ? ' me' : '') + (m.type === 'stars' ? ' star' : '') + (m.type === 'gift' ? ' gift' : '');
     const body = document.createElement('div');
     if (m.type === 'stars') {
       body.textContent = '⭐ ' + m.amount + (m.from === ADMIN ? ' (выдано durovv)' : '');
+    } else if (m.type === 'gift') {
+      const big = document.createElement('div');
+      big.style.fontSize = '48px';
+      big.textContent = m.emoji;
+      const cap = document.createElement('div');
+      cap.textContent = '🎁 Подарок: ' + m.gname;
+      body.append(big, cap);
     } else {
       body.textContent = m.text;
     }
@@ -203,13 +302,28 @@
   }
   function openChat(u) {
     peer = u;
-    $('#peername').textContent = '@' + u;
     $('#msgs').innerHTML = '';
+    $('#peerBtn').innerHTML = '';
     show('#chat');
+    socket.emit('profile', { user: u }, (res) => {
+      if (res && res.ok && peer === u) {
+        const p = res.profile;
+        const b = $('#peerBtn');
+        b.innerHTML = '';
+        const w = document.createElement('div');
+        const s = document.createElement('span');
+        s.textContent = p.name;
+        const sub = document.createElement('small');
+        sub.textContent = '@' + p.username;
+        w.append(s, sub);
+        b.append(ava(p, 36), w);
+      }
+    });
     socket.emit('history', { with: u }, (res) => {
       if (res && res.ok && peer === u) res.messages.forEach(add);
     });
   }
+  $('#peerBtn').onclick = () => { if (peer) showProfile(peer, '#chat'); };
   $('#btnBack').onclick = () => { peer = null; show('#list'); $('#q').value = ''; loadChats(); };
 
   $('#form').addEventListener('submit', (e) => {
@@ -220,13 +334,120 @@
     $('#input').value = '';
   });
 
-  $('#btnStars').onclick = () => {
-    if (!peer) return;
-    const label = me.username === ADMIN ? 'Сколько звёзд выдать @' + peer + '?' : 'Сколько звёзд отправить @' + peer + '?';
+  function sendStars(to) {
+    const label = me.username === ADMIN ? 'Сколько звёзд выдать @' + to + '?' : 'Сколько звёзд отправить @' + to + '?';
     const v = prompt(label);
     if (!v) return;
-    socket.emit('stars', { to: peer, amount: Number(v) }, (res) => { if (res && !res.ok) alert(res.error); });
+    socket.emit('stars', { to, amount: Number(v) }, (res) => { if (res && !res.ok) alert(res.error); });
+  }
+  $('#btnStars').onclick = () => { if (peer) sendStars(peer); };
+  $('#btnGift').onclick = () => { if (peer) openGifts(peer); };
+
+  // ---- подарки ----
+  function openGifts(to) {
+    giftTo = to;
+    $('#gtitle').textContent = 'Подарок для @' + to + (me.username === ADMIN ? ' (бесплатно)' : '  ·  у вас ⭐ ' + me.stars);
+    const box = $('#glist');
+    box.innerHTML = '';
+    gifts.forEach((g) => {
+      const c = document.createElement('div');
+      c.className = 'gcell';
+      c.innerHTML = '<div class="e"></div><div class="n"></div><div class="s"></div>';
+      c.querySelector('.e').textContent = g.emoji;
+      c.querySelector('.n').textContent = g.name;
+      c.querySelector('.s').textContent = '⭐ ' + g.price;
+      c.onclick = () => pickGift(g);
+      box.appendChild(c);
+    });
+    $('#gmodal').hidden = false;
+  }
+  function pickGift(g) {
+    const free = me.username === ADMIN;
+    const q = 'Отправить ' + g.emoji + ' ' + g.name + ' для @' + giftTo + (free ? ' бесплатно?' : ' за ' + g.price + ' ⭐?');
+    if (!confirm(q)) return;
+    socket.emit('sendGift', { to: giftTo, gift: g.id }, (res) => {
+      if (res && res.ok) {
+        $('#gmodal').hidden = true;
+        if (!$('#prof').hidden) showProfile(profUser, profPrev);
+      } else {
+        alert((res && res.error) || 'Ошибка');
+      }
+    });
+  }
+  $('#gclose').onclick = () => { $('#gmodal').hidden = true; };
+  $('#gmodal').addEventListener('click', (e) => { if (e.target.id === 'gmodal') $('#gmodal').hidden = true; });
+
+  // ---- профиль ----
+  function showProfile(u, prev) {
+    profPrev = prev;
+    profUser = u;
+    show('#prof');
+    socket.emit('profile', { user: u }, (res) => {
+      if (!res || !res.ok) { alert((res && res.error) || 'Ошибка'); show(prev); return; }
+      if (profUser === u) renderProfile(res.profile);
+    });
+  }
+  function renderProfile(p) {
+    const isMe = p.username === me.username;
+    const a = $('#pAva');
+    a.innerHTML = '';
+    a.appendChild(ava(p, 96));
+    $('#pName').textContent = p.name;
+    $('#pUser').textContent = '@' + p.username;
+    $('#pBio').textContent = p.bio || (isMe ? 'Расскажите о себе' : '');
+    $('#pStars').hidden = !isMe;
+    if (isMe) $('#pStars').textContent = '⭐ ' + p.stars;
+    $('#pActs').hidden = isMe;
+    $('#pEdit').hidden = !isMe;
+    if (isMe) {
+      $('#eName').value = p.name;
+      $('#eBio').value = p.bio || '';
+      editColor = p.color;
+      drawSwatches();
+    }
+    const g = $('#pGifts');
+    g.innerHTML = '';
+    if (!p.gifts.length) {
+      const e = document.createElement('div');
+      e.className = 'empty';
+      e.style.gridColumn = '1 / -1';
+      e.textContent = 'Подарков пока нет';
+      g.appendChild(e);
+    }
+    p.gifts.forEach((it) => {
+      const c = document.createElement('div');
+      c.className = 'gcell';
+      c.innerHTML = '<div class="e"></div><div class="n"></div><div class="s"></div>';
+      c.querySelector('.e').textContent = it.emoji;
+      c.querySelector('.n').textContent = it.name;
+      c.querySelector('.s').textContent = 'от @' + it.from;
+      g.appendChild(c);
+    });
+  }
+  function drawSwatches() {
+    const box = $('#sw');
+    box.innerHTML = '';
+    COLORS.forEach((c) => {
+      const s = document.createElement('span');
+      s.style.background = c;
+      if (c === editColor) s.className = 'sel';
+      s.onclick = () => { editColor = c; drawSwatches(); };
+      box.appendChild(s);
+    });
+  }
+  $('#eSave').onclick = () => {
+    socket.emit('saveProfile', { name: $('#eName').value, bio: $('#eBio').value, color: editColor }, (res) => {
+      if (res && res.ok) { setMe(res.me); showProfile(me.username, profPrev); }
+      else alert((res && res.error) || 'Ошибка');
+    });
   };
+  $('#pBack').onclick = () => {
+    show(profPrev);
+    if (profPrev === '#list') loadChats();
+  };
+  $('#pWrite').onclick = () => openChat(profUser);
+  $('#pGift').onclick = () => openGifts(profUser);
+  $('#pStarsBtn').onclick = () => sendStars(profUser);
 
   socket.on('message', (m) => {
     const other = m.from === me.username ? m.to : m.from;
@@ -235,8 +456,11 @@
   });
   socket.on('balance', (n) => {
     me.stars = n;
-    $('#bal').textContent = '⭐ ' + n;
+    renderMe();
+    if (!$('#prof').hidden && profUser === me.username) $('#pStars').textContent = '⭐ ' + n;
   });
+
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 </script>
 </body>
-                        </html>
+ </html>
