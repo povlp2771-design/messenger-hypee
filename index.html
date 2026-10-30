@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>okak messenger</title>
+<style>
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; font-family: -apple-system, Roboto, sans-serif; background: #0e1621; color: #e8eef5; height: 100dvh; }
+  .screen { display: flex; flex-direction: column; height: 100dvh; max-width: 700px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: #17212b; }
+  header .grow { flex: 1; font-weight: 600; }
+  button { border: none; border-radius: 10px; background: #2b8fd9; color: #fff; padding: 10px 14px; font-size: 15px; }
+  button.ghost { background: transparent; color: #7fb3ff; padding: 8px; }
+  input { width: 100%; padding: 12px 14px; border: none; border-radius: 12px; background: #0e1621; color: #fff; font-size: 16px; }
+  #auth { justify-content: center; padding: 24px; gap: 12px; }
+  #auth h1 { text-align: center; margin: 0 0 8px; }
+  #auth .row { display: flex; gap: 10px; }
+  #auth .row button { flex: 1; }
+  #auth input { background: #17212b; }
+  #err { color: #ff7b7b; min-height: 20px; text-align: center; font-size: 14px; }
+  .search { padding: 10px 12px; background: #17212b; }
+  #chats { flex: 1; overflow-y: auto; }
+  .item { display: flex; gap: 12px; padding: 12px 14px; align-items: center; border-bottom: 1px solid #17212b; }
+  .ava { width: 46px; height: 46px; border-radius: 50%; background: #2b8fd9; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; flex-shrink: 0; }
+  .item .info { flex: 1; min-width: 0; }
+  .item .nm { font-weight: 600; }
+  .item .pv { color: #8a99a8; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item .tm { color: #8a99a8; font-size: 12px; }
+  .empty { color: #8a99a8; text-align: center; padding: 30px 20px; }
+  #msgs { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .msg { max-width: 80%; padding: 8px 12px; border-radius: 14px; background: #182533; word-wrap: break-word; white-space: pre-wrap; }
+  .msg.me { align-self: flex-end; background: #2b5278; }
+  .msg.star { background: #4b3a10; font-weight: 600; }
+  .msg .t { font-size: 11px; color: #8a99a8; text-align: right; margin-top: 2px; }
+  form { display: flex; gap: 8px; padding: 10px; background: #17212b; }
+  form input { flex: 1; }
+</style>
+</head>
+<body>
+
+<div id="auth" class="screen" hidden>
+  <h1>okak messenger</h1>
+  <input id="u" placeholder="Юзернейм" autocomplete="username" autocapitalize="none">
+  <input id="p" type="password" placeholder="Пароль (мин. 6 символов)" autocomplete="current-password">
+  <div id="err"></div>
+  <div class="row">
+    <button id="btnLogin">Войти</button>
+    <button id="btnReg">Регистрация</button>
+  </div>
+</div>
+
+<div id="list" class="screen" hidden>
+  <header>
+    <div class="grow" id="myname"></div>
+    <div id="bal">⭐ 0</div>
+    <button class="ghost" id="btnLogout">Выйти</button>
+  </header>
+  <div class="search"><input id="q" placeholder="Поиск по юзернейму" autocapitalize="none"></div>
+  <div id="chats"></div>
+</div>
+
+<div id="chat" class="screen" hidden>
+  <header>
+    <button class="ghost" id="btnBack">←</button>
+    <div class="grow" id="peername"></div>
+    <button id="btnStars">⭐</button>
+  </header>
+  <div id="msgs"></div>
+  <form id="form">
+    <input id="input" placeholder="Сообщение..." autocomplete="off">
+    <button type="submit">➤</button>
+  </form>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const ADMIN = 'durovv';
+  const $ = (s) => document.querySelector(s);
+  const socket = io();
+  let me = null, peer = null, token = null;
+  try { token = localStorage.getItem('token'); } catch (e) {}
+
+  function show(id) {
+    ['#auth', '#list', '#chat'].forEach((s) => { $(s).hidden = (s !== id); });
+  }
+  function fmt(t) {
+    return new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  function setMe(m) {
+    me = m;
+    $('#myname').textContent = '@' + m.username;
+    $('#bal').textContent = '⭐ ' + m.stars;
+  }
+  function saveToken(t) { token = t; try { localStorage.setItem('token', t); } catch (e) {} }
+  function clearToken() { token = null; try { localStorage.removeItem('token'); } catch (e) {} }
+
+  // ---- вход ----
+  function enter(res) {
+    if (!res || !res.ok) { $('#err').textContent = (res && res.error) || 'Ошибка'; return; }
+    saveToken(res.token);
+    setMe(res.me);
+    $('#err').textContent = '';
+    $('#p').value = '';
+    show('#list');
+    loadChats();
+  }
+  $('#btnLogin').onclick = () => socket.emit('login', { username: $('#u').value, password: $('#p').value }, enter);
+  $('#btnReg').onclick = () => socket.emit('register', { username: $('#u').value, password: $('#p').value }, enter);
+  $('#btnLogout').onclick = () => {
+    socket.emit('logout', token);
+    clearToken();
+    location.reload();
+  };
+
+  socket.on('connect', () => {
+    if (!token) { show('#auth'); return; }
+    socket.emit('auth', token, (res) => {
+      if (res && res.ok) {
+        const first = !me;
+        setMe(res.me);
+        if (first) show('#list');
+        loadChats();
+        if (peer) openChat(peer);
+      } else {
+        clearToken();
+        show('#auth');
+      }
+    });
+  });
+
+  // ---- список чатов ----
+  function renderItems(items) {
+    const box = $('#chats');
+    box.innerHTML = '';
+    if (!items.length) {
+      const e = document.createElement('div');
+      e.className = 'empty';
+      e.textContent = 'Чатов пока нет. Найдите человека по юзернейму выше.';
+      box.appendChild(e);
+      return;
+    }
+    items.forEach((it) => {
+      const row = document.createElement('div');
+      row.className = 'item';
+      const ava = document.createElement('div');
+      ava.className = 'ava';
+      ava.textContent = it.user[0].toUpperCase();
+      const info = document.createElement('div');
+      info.className = 'info';
+      const nm = document.createElement('div');
+      nm.className = 'nm';
+      nm.textContent = '@' + it.user;
+      const pv = document.createElement('div');
+      pv.className = 'pv';
+      if (it.last) {
+        const who = it.last.from === me.username ? 'Вы: ' : '';
+        pv.textContent = who + (it.last.type === 'stars' ? '⭐ ' + it.last.amount : it.last.text);
+      }
+      info.append(nm, pv);
+      row.append(ava, info);
+      if (it.last) {
+        const tm = document.createElement('div');
+        tm.className = 'tm';
+        tm.textContent = fmt(it.last.time);
+        row.appendChild(tm);
+      }
+      row.onclick = () => openChat(it.user);
+      box.appendChild(row);
+    });
+  }
+  function loadChats() {
+    if ($('#q').value.trim()) return;
+    socket.emit('chats', null, (res) => { if (res && res.ok) renderItems(res.chats); });
+  }
+  $('#q').addEventListener('input', () => {
+    const q = $('#q').value.trim();
+    if (!q) { loadChats(); return; }
+    socket.emit('search', q, (res) => {
+      if (res && res.ok) renderItems(res.users.map((u) => ({ user: u, last: null })));
+    });
+  });
+
+  // ---- чат ----
+  function add(m) {
+    const div = document.createElement('div');
+    const mine = m.from === me.username;
+    div.className = 'msg' + (mine ? ' me' : '') + (m.type === 'stars' ? ' star' : '');
+    const body = document.createElement('div');
+    if (m.type === 'stars') {
+      body.textContent = '⭐ ' + m.amount + (m.from === ADMIN ? ' (выдано durovv)' : '');
+    } else {
+      body.textContent = m.text;
+    }
+    const t = document.createElement('div');
+    t.className = 't';
+    t.textContent = fmt(m.time);
+    div.append(body, t);
+    const box = $('#msgs');
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  }
+  function openChat(u) {
+    peer = u;
+    $('#peername').textContent = '@' + u;
+    $('#msgs').innerHTML = '';
+    show('#chat');
+    socket.emit('history', { with: u }, (res) => {
+      if (res && res.ok && peer === u) res.messages.forEach(add);
+    });
+  }
+  $('#btnBack').onclick = () => { peer = null; show('#list'); $('#q').value = ''; loadChats(); };
+
+  $('#form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = $('#input').value.trim();
+    if (!text || !peer) return;
+    socket.emit('send', { to: peer, text }, (res) => { if (res && !res.ok) alert(res.error); });
+    $('#input').value = '';
+  });
+
+  $('#btnStars').onclick = () => {
+    if (!peer) return;
+    const label = me.username === ADMIN ? 'Сколько звёзд выдать @' + peer + '?' : 'Сколько звёзд отправить @' + peer + '?';
+    const v = prompt(label);
+    if (!v) return;
+    socket.emit('stars', { to: peer, amount: Number(v) }, (res) => { if (res && !res.ok) alert(res.error); });
+  };
+
+  socket.on('message', (m) => {
+    const other = m.from === me.username ? m.to : m.from;
+    if (peer === other) add(m);
+    loadChats();
+  });
+  socket.on('balance', (n) => {
+    me.stars = n;
+    $('#bal').textContent = '⭐ ' + n;
+  });
+</script>
+</body>
+                        </html>
